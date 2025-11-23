@@ -83,4 +83,9 @@ public class LinkedList<T> implements Iterable<T> {
         }
     }
 
+    public void clear() {
+        head = null;
+        size = 0;
+    }
+
 }

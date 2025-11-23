@@ -8,7 +8,7 @@ public class Player extends Entity {
     private int ammo;
 
     public Player(double x, double y) {
-        super(x, y, 12);
+        super(x, y, 16);
         this.health = 3;
         maxHealth = 6;
         this.currentWeapon = WeaponType.RIFLE;

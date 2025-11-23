@@ -2,20 +2,58 @@ package model;
 
 public enum Scenario {
 
-    PLAIN("Escenario 1 - Llanuras", "/images/scenario3.jpg", 60, plainTiles()),
-    MOUNTAIN("Escenario 2 - Montañas", "/images/scenario2.jpg", 60, mountainTiles()),
-    RIVER("Escenario 3 - Río", "/images/scenario1.jpg", 20, riverTiles());
+    PLAIN(
+            "Escenario 1 - Llanuras",
+            "/images/scenario3.png",
+            20,
+            null,
+            "/maps/MapaLlanurasCSV.csv",
+            90, 11      // 👉 CM12 (col 90, fila 11 en 0-based)
+    ),
+    MOUNTAIN(
+            "Escenario 2 - Montañas",
+            "/images/scenario2.png",
+            20,
+            null,
+            "/maps/MapaAcantiladoCSV.csv",
+            88, 44  // 👉 en este mapa no hay rifle en el suelo
+    ),
+    RIVER(
+            "Escenario 3 - Río",
+            "/images/scenario1.png",
+            20,
+            null,
+            "/maps/MapaRioCSV.csv",
+            21, 12  // 👉 tampoco rifle tirado aquí (por ahora)
+    );
 
     private final String displayName;
     private final String imagePath;
     private final int tileSize;
-    private final int[][] tiles;
 
-    Scenario(String displayName, String imagePath, int tileSize, int[][] tiles) {
+    // opción A: matriz ya construida en código
+    private int[][] tiles;
+
+    // opción B: ruta a CSV para cargar las tiles
+    private final String mapPath;
+
+    private final Integer rifleCol;
+    private final Integer rifleRow;
+
+    Scenario(String displayName,
+             String imagePath,
+             int tileSize,
+             int[][] tiles,
+             String mapPath,
+             Integer rifleCol,
+             Integer rifleRow) {
         this.displayName = displayName;
         this.imagePath = imagePath;
         this.tileSize = tileSize;
         this.tiles = tiles;
+        this.mapPath = mapPath;
+        this.rifleCol = rifleCol;
+        this.rifleRow = rifleRow;
     }
 
     public String getDisplayName() {
@@ -31,97 +69,23 @@ public enum Scenario {
     }
 
     public int[][] getTiles() {
-        return tiles;
+        // si ya hay matriz cargada, la devolvemos
+        if (tiles != null) {
+            return tiles;
+        }
+        // si no hay matriz pero sí hay CSV, lo leemos una vez
+        if (mapPath != null) {
+            tiles = MapLoader.loadTiles(mapPath);
+            return tiles;
+        }
+        throw new IllegalStateException("Scenario sin tiles ni CSV: " + name());
     }
 
-    // ---- Matrices simples (puedes modificarlas cuando veas el juego) ----
-
-    private static int[][] riverTiles() {
-        return new int[][] {
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  1,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0},
-                {0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  1,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0,  	  0}
-
-        };
+    public Integer getRifleCol() {
+        return rifleCol;
     }
 
-    private static int[][] mountainTiles() {
-        int cols = 25, rows = 18;
-        int[][] t = new int[rows][cols];
-        // bordes bloqueados
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (r == 0 || r == rows - 1 || c == 0 || c == cols - 1) {
-                    t[r][c] = 1;
-                } else {
-                    t[r][c] = 1; // todo bloqueado por defecto
-                }
-            }
-        }
-        // tallamos un camino en zigzag (0 = camino)
-        for (int r = 2; r < rows - 2; r++) {
-            int colStart = (r % 4 < 2) ? 2 : cols - 6;
-            for (int c = colStart; c < colStart + 4; c++) {
-                t[r][c] = 0;
-            }
-        }
-        return t;
-    }
-
-    private static int[][] plainTiles() {
-        int cols = 25, rows = 18;
-        int[][] t = new int[rows][cols];
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (r == 0 || r == rows - 1 || c == 0 || c == cols - 1) {
-                    t[r][c] = 1;
-                } else {
-                    // centro es río bloqueado
-                    if (c >= 10 && c <= 14) {
-                        t[r][c] = 1;
-                    } else {
-                        t[r][c] = 0;
-                    }
-                }
-            }
-        }
-        // puente cerca del centro
-        for (int r = 7; r <= 10; r++) {
-            for (int c = 11; c <= 13; c++) {
-                t[r][c] = 0;
-            }
-        }
-        return t;
+    public Integer getRifleRow() {
+        return rifleRow;
     }
 }

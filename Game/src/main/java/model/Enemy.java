@@ -1,5 +1,6 @@
 package model;
 
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Enemy extends Entity {
@@ -7,10 +8,11 @@ public class Enemy extends Entity {
     private final EnemyType type;
     private int health;
     private double shootCooldown;
+    private boolean dead = false;
 
 
     public Enemy(double x, double y, EnemyType type) {
-        super(x, y, 10);
+        super(x, y, 16);
         this.type = type;
         this.health = type.maxHealth;
         this.shootCooldown = Math.random() * 1.5; // para que no disparen todos al mismo tiempo
@@ -61,12 +63,20 @@ public class Enemy extends Entity {
 
 
 
+
     public void takeDamage(int amount) {
         health -= amount;
     }
 
     public boolean isDead() {
         return health <= 0;
+    }
+
+
+
+
+    public void markDead() {
+        this.dead = true;
     }
 
 }

@@ -37,7 +37,7 @@ public class MainApp extends Application {
             MenuController controller = loader.getController();
             controller.setMainApp(this);
 
-            Scene scene = new Scene(root); // ✅ sin ancho/alto fijos
+            Scene scene = new Scene(root); // sin ancho/alto fijos
             primaryStage.setTitle("Oregon Trail Survival - Menú");
             primaryStage.setScene(scene);
 
@@ -83,7 +83,7 @@ public class MainApp extends Application {
             AchievementsController controller = loader.getController();
             controller.setMainApp(this);
 
-            Scene scene = new Scene(root); // ✅
+            Scene scene = new Scene(root); //
             primaryStage.setTitle("Oregon Trail Survival - Logros");
             primaryStage.setScene(scene);
         } catch (IOException e) {
@@ -96,3 +96,4 @@ public class MainApp extends Application {
         launch(args);
     }
 }
+

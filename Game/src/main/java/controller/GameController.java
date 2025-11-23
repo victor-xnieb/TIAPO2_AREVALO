@@ -48,6 +48,25 @@ public class GameController {
 
     private final Set<KeyCode> pressedKeys = new HashSet<>();
     private Image[] enemyFrames;
+    // índice 0: IDLE
+    // índice 1: WALK
+    // índice 2: SHOOT_REVOLVER
+    // índice 3: SHOOT_RIFLE
+    private Image[][] playerAnimations;
+
+    private static final int ANIM_IDLE           = 0;
+    private static final int ANIM_WALK           = 1;
+    private static final int ANIM_SHOOT_REVOLVER = 2;
+    private static final int ANIM_SHOOT_RIFLE    = 3;
+
+    private static final long PLAYER_ANIM_FRAME_NS  = 150_000_000L; // ~0.15s
+    private static final long PLAYER_SHOOT_ANIM_NS  = 150_000_000L;
+
+    private boolean playerMoving   = false;
+    private boolean playerShooting = false;
+    private long lastShotTimeNanos;
+
+
     private AnimationTimer timer;
     private long lastTimeNanos;
 
@@ -70,6 +89,26 @@ public class GameController {
     private double zoom = 1.0;
     private double cameraX;
     private double cameraY;
+
+
+
+    // --- armas del jugador ---
+    private WeaponType currentWeapon = WeaponType.REVOLVER;
+    // por ahora lo dejamos true para que puedas probar el cambio de sprites;
+    // cuando pongamos el rifle en el suelo lo inicializamos en false
+    private boolean hasRifle = false;
+
+    // munición total actual
+    private int ammo;
+
+    // munición máxima (para el HUD / pickups)
+    private int maxAmmo = 30;
+
+    // pickups de armas
+    private LinkedList<WeaponPickup> weaponPickups;
+
+    // imagen del rifle en el suelo
+    private Image riflePickupImage;
 
 
 
@@ -97,10 +136,16 @@ public class GameController {
             gameCanvas.setOnScroll(e -> {
                 double factor = (e.getDeltaY() > 0) ? 1.1 : 0.9;
                 zoom *= factor;
-                // límites para que no se vuelva loco
-                if (zoom < 0.5) zoom = 0.5;
+
+                // límites
+                if (zoom < 0.4) zoom = 0.4;
                 if (zoom > 2.5) zoom = 2.5;
+
+                // muy importante: volver a limitar la cámara
+                clampCameraToWorld();
             });
+
+
         }
     }
 
@@ -140,36 +185,87 @@ public class GameController {
 
     // llamado por MainApp después de inyectar todo
     public void initGame() {
-        // cargar fondo
+        // 1) Fondo
         background = new Image(getClass().getResourceAsStream(scenario.getImagePath()));
 
-        // mapa por tiles
-        gameMap = new GameMap(scenario.getTiles(), scenario.getTileSize());
+        // 2) Mapa
+        gameMap = new GameMap(scenario);
 
+        // 3) Frames de enemigos
         enemyFrames = new Image[] {
-                new Image(getClass().getResourceAsStream("/images/enemigo.png")),
-                new Image(getClass().getResourceAsStream("/images/enemigo2.png")),
-                new Image(getClass().getResourceAsStream("/images/enemigo3.png")),
-                new Image(getClass().getResourceAsStream("/images/enemigo4.png"))
+                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo.png")),
+                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo2.png")),
+                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo3.png")),
+                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo4.png"))
         };
 
+        playerAnimations = new Image[4][];
 
-        // ajustar canvas al tamaño del mapa
-        gameCanvas.setWidth(gameMap.getWidth());
-        gameCanvas.setHeight(gameMap.getHeight());
+        // IDLE: un solo frame
+        playerAnimations[ANIM_IDLE] = new Image[] {
+                new Image(getClass().getResourceAsStream("/images/jugador/jugador3.png"))
+        };
 
-        player = new Player(gameMap.getWidth() / 2, gameMap.getHeight() / 2);
+        // WALK: dos frames que alternan
+        playerAnimations[ANIM_WALK] = new Image[] {
+                new Image(getClass().getResourceAsStream("/images/jugador/jugador1.png")),
+                new Image(getClass().getResourceAsStream("/images/jugador/jugador2.png"))
+        };
+
+        // SHOOT_REVOLVER: un frame
+        playerAnimations[ANIM_SHOOT_REVOLVER] = new Image[] {
+                new Image(getClass().getResourceAsStream("/images/jugador/jugador_revolver.png"))
+        };
+
+        // SHOOT_RIFLE: un frame
+        playerAnimations[ANIM_SHOOT_RIFLE] = new Image[] {
+                new Image(getClass().getResourceAsStream("/images/jugador/jugador_rifle.png"))
+        };
+
+        // 4) Jugador y listas
+        player = new Player(gameMap.getWidth() / 2.0, gameMap.getHeight() / 2.0);
         enemies = new LinkedList<>();
         bullets = new LinkedList<>();
         ammoPickups = new LinkedList<>();
         enemyBullets = new LinkedList<>();
 
+
+        currentWeapon = WeaponType.REVOLVER;
+        hasRifle = false;   // 🚨 ahora empieza solo con revólver
+
+        ammo = 20;          // balas iniciales (ajusta si quieres)
+        maxAmmo = 30;
+
+        // --- pickups de arma ---
+        weaponPickups = new LinkedList<>();
+
+        // imagen del rifle en el suelo
+        riflePickupImage = new Image(
+                getClass().getResourceAsStream("/images/armas/rifle_piso.png")
+        );
+
+        // 5) Cámara + zoom inicial
+        cameraX = player.getPosition().x;
+        cameraY = player.getPosition().y;
+
+        double w = gameCanvas.getWidth();
+        double h = gameCanvas.getHeight();
+
+        double zx = w / gameMap.getWidth();
+        double zy = h / gameMap.getHeight();
+        zoom = Math.min(zx, zy);
+        if (zoom > 1.0) zoom = 1.0;
+        if (zoom < 0.4) zoom = 0.4;
+
+        clampCameraToWorld();
+
+        // 6) Enemigos iniciales, HUD y loop
         spawnScenarioEnemies();
-
+        spawnScenarioWeapons();
         updateHud();
-
-        startLoop();
+        startLoop();   // 👈 SIEMPRE al FINAL
     }
+
 
     private void spawnScenarioEnemies() {
         switch (scenario) {
@@ -211,10 +307,13 @@ public class GameController {
         }
 
         handleMovement(delta);
+        checkCliffFall();
         updateEnemies(delta);
+        killEnemiesOnCliff();
         updateBullets(delta);
         updateEnemyBullets(delta);   // lo añadimos luego
         updateAmmoPickups();
+        updateWeaponPickups();
         checkPlayerEnemyCollisions();
 
         enemySpawnTimer += delta;
@@ -248,21 +347,21 @@ public class GameController {
         double halfW = viewW / 2.0;
         double halfH = viewH / 2.0;
 
-        // Eje X
+        // eje X
         if (worldW <= viewW) {
-            // El mundo es más pequeño que la pantalla: centramos
             cameraX = worldW / 2.0;
         } else {
             cameraX = Math.max(halfW, Math.min(worldW - halfW, cameraX));
         }
 
-        // Eje Y
+        // eje Y
         if (worldH <= viewH) {
             cameraY = worldH / 2.0;
         } else {
             cameraY = Math.max(halfH, Math.min(worldH - halfH, cameraY));
         }
     }
+
 
 
 
@@ -403,7 +502,6 @@ public class GameController {
         };
     }
 
-
     private void handleMovement(double delta) {
         double speed = 140;
 
@@ -415,23 +513,35 @@ public class GameController {
         if (pressedKeys.contains(KeyCode.A)) dx -= speed * delta;
         if (pressedKeys.contains(KeyCode.D)) dx += speed * delta;
 
+        boolean moved = false;
+
         if (dx != 0 || dy != 0) {
+            double r = player.getRadius();
+
             double newX = player.getPosition().x + dx;
             double newY = player.getPosition().y + dy;
 
-            if (gameMap.canMoveTo(newX, newY, player.getRadius())) {
-                player.move(dx, dy);
+            if (gameMap.canMoveTo(newX, player.getPosition().y, r)) {
+                player.move(dx, 0);
+                moved = true;
+            }
+            if (gameMap.canMoveTo(player.getPosition().x, newY, r)) {
+                player.move(0, dy);
+                moved = true;
             }
         }
 
-        if (pressedKeys.contains(KeyCode.Q)) {
-            player.switchWeapon();
+        playerMoving = moved;
+
+        // 🔁 antes usábamos Q, ahora C
+        if (pressedKeys.contains(KeyCode.C)) {
+            toggleWeapon();
         }
 
-        // disparo muy simplificado: no implemento balas aún para no alargar
-        // pero aquí iría shoot()
         updateHud();
     }
+
+
 
     private void updateEnemies(double delta) {
         for (Enemy enemy : enemies) {
@@ -490,30 +600,46 @@ public class GameController {
         // for (...) if tile==1 gc.fillRect(...);
 
         // ---- jugador ----
-        gc.setFill(Color.BLUE);
-        gc.fillOval(
-                player.getPosition().x - player.getRadius(),
-                player.getPosition().y - player.getRadius(),
-                player.getRadius() * 2,
-                player.getRadius() * 2
-        );
+        // jugador con sprite
+        Image sprite = choosePlayerSprite();
+        double size = player.getRadius() * 4; // ajusta hasta que se vea del tamaño que te guste
+
+        double px = player.getPosition().x - size / 2;
+        double py = player.getPosition().y - size / 2;
+
+        gc.drawImage(sprite, px, py, size, size);
+
 
         // ---- enemigos (animados con frames) ----
-        long now = System.nanoTime();
-        int frame = (int) ((now / 150_000_000L) % enemyFrames.length);
-        Image enemyFrame = enemyFrames[frame];
+        // ---- enemigos (animados con frames) ----
+        Image enemyFrame = null;
+        if (enemyFrames != null && enemyFrames.length > 0) {
+            long now = System.nanoTime();
+            int frameIndex = (int) ((now / 150_000_000L) % enemyFrames.length);
+            enemyFrame = enemyFrames[frameIndex];
+        }
 
         for (Enemy enemy : enemies) {
             double x = enemy.getPosition().x;
             double y = enemy.getPosition().y;
+            double size2 = enemy.getRadius() * 4;
 
-            double size = enemy.getRadius() * 4; // ajusta si se ven muy grandes
-
-            gc.drawImage(enemyFrame,
-                    x - size / 2,
-                    y - size / 2,
-                    size,
-                    size);
+            if (enemyFrame != null) {
+                gc.drawImage(enemyFrame,
+                        x - size2 / 2,
+                        y - size2 / 2,
+                        size2,
+                        size2);
+            } else {
+                // fallback por si algo falla al cargar las imágenes
+                gc.setFill(Color.RED);
+                gc.fillOval(
+                        x - enemy.getRadius(),
+                        y - enemy.getRadius(),
+                        enemy.getRadius() * 2,
+                        enemy.getRadius() * 2
+                );
+            }
         }
 
         // ---- pickups de munición ----
@@ -526,6 +652,22 @@ public class GameController {
                     pickup.getRadius() * 2
             );
         }
+
+        // pickups de armas (rifle en el suelo)
+        if (riflePickupImage != null && weaponPickups != null) {
+            for (WeaponPickup wp : weaponPickups) {
+                double size4 = wp.getRadius() * 2;
+
+                gc.drawImage(
+                        riflePickupImage,
+                        wp.getPosition().x - size4 / 2,
+                        wp.getPosition().y - size4 / 2,
+                        size4,
+                        size4
+                );
+            }
+        }
+
 
         // ---- balas del jugador ----
         gc.setFill(Color.YELLOW);
@@ -555,15 +697,15 @@ public class GameController {
         // ================== UI / MIRA (coordenadas de pantalla) ==================
 
         if (mouseInside) {
-            double size = 12; // largo de las líneas de la mira
+            double size3 = 12; // largo de las líneas de la mira
 
             gc.setStroke(Color.WHITE);
             gc.setLineWidth(2);
 
             // línea horizontal
-            gc.strokeLine(mouseX - size, mouseY, mouseX + size, mouseY);
+            gc.strokeLine(mouseX - size3, mouseY, mouseX + size3, mouseY);
             // línea vertical
-            gc.strokeLine(mouseX, mouseY - size, mouseX, mouseY + size);
+            gc.strokeLine(mouseX, mouseY - size3, mouseX, mouseY + size3);
 
             // pequeño círculo en el centro
             gc.strokeOval(mouseX - 3, mouseY - 3, 6, 6);
@@ -573,7 +715,7 @@ public class GameController {
 
     private void updateHud() {
         healthLabel.setText("Vida: " + player.getHealth());
-        weaponLabel.setText("Arma: " + player.getCurrentWeapon());
+        weaponLabel.setText("Arma: " + currentWeapon);
         ammoLabel.setText("Munición: " + player.getAmmo());
     }
 
@@ -606,6 +748,207 @@ public class GameController {
             timer.stop();
             mainApp.showMainMenu();
         }
+    }
+
+
+    private void killEnemiesOnCliff() {
+        // solo tiene sentido en el escenario de montañas
+        if (scenario != Scenario.MOUNTAIN) {
+            return;
+        }
+
+        datastructures.LinkedList<Enemy> remaining = new datastructures.LinkedList<>();
+
+        for (Enemy enemy : enemies) {
+            double ex = enemy.getPosition().x;
+            double ey = enemy.getPosition().y;
+
+            // si NO está sobre un 2, lo conservamos
+            if (!gameMap.isCliffAt(ex, ey)) {
+                remaining.addLast(enemy);
+            }
+            // si sí está pisando un 2, simplemente NO lo añadimos -> desaparece
+        }
+
+        enemies = remaining;
+    }
+
+    private void checkCliffFall() {
+        // Solo hay acantilado en Montañas
+        if (scenario != Scenario.MOUNTAIN) {
+            return;
+        }
+
+        // cooldown para no perder vida en bucle
+        if (playerHitCooldown > 0) {
+            return;
+        }
+
+        double x = player.getPosition().x;
+        double y = player.getPosition().y;
+        double r = player.getRadius() * 0.7; // un poco alrededor del jugador
+
+        boolean onCliff =
+                gameMap.isCliffAt(x, y) ||
+                        gameMap.isCliffAt(x - r, y) ||
+                        gameMap.isCliffAt(x + r, y) ||
+                        gameMap.isCliffAt(x, y + r);
+
+        if (onCliff) {
+            player.takeDamage(1);
+            updateHud();
+
+            // ------------ RESPawn en un punto concreto del mapa ------------
+
+            // coordenadas de la celda segura en la matriz (0 = primera fila/columna)
+            int safeCol = 141 /* AQUÍ pones el índice de columna */;
+            int safeRow = 88 /* AQUÍ pones el índice de fila    */;
+
+            double safeX = (safeCol + 0.5) * gameMap.getTileSize();
+            double safeY = (safeRow + 0.5) * gameMap.getTileSize();
+
+            player.getPosition().x = safeX;
+            player.getPosition().y = safeY;
+
+            //----------------------------------------------------------------
+
+            playerHitCooldown = 1.0; // para que no caiga en bucle
+
+            if (player.isDead()) {
+                timer.stop();
+                mainApp.showMainMenu();
+            }
+        }
+    }
+
+
+    private Image choosePlayerSprite() {
+        long now = System.nanoTime();
+
+        // 1) Si está disparando, mostrar animación de disparo según el arma
+        if (playerShooting && now - lastShotTimeNanos < PLAYER_SHOOT_ANIM_NS) {
+            int animIndex = (currentWeapon == WeaponType.RIFLE)
+                    ? ANIM_SHOOT_RIFLE
+                    : ANIM_SHOOT_REVOLVER;
+
+            Image[] frames = playerAnimations[animIndex];
+            return frames[0]; // por ahora un solo frame
+        }
+
+        // Si ya pasó el tiempo del disparo, apagamos el flag
+        if (playerShooting && now - lastShotTimeNanos >= PLAYER_SHOOT_ANIM_NS) {
+            playerShooting = false;
+        }
+
+        // 2) Si se está moviendo, usamos la animación de caminar
+        if (playerMoving) {
+            Image[] walkFrames = playerAnimations[ANIM_WALK];
+            int frame = (int) ((now / PLAYER_ANIM_FRAME_NS) % walkFrames.length);
+            return walkFrames[frame];
+        }
+
+        // 3) Si está quieto, animación idle
+        return playerAnimations[ANIM_IDLE][0];
+    }
+
+
+
+
+    private void toggleWeapon() {
+        if (!hasRifle) {
+            // todavía no ha recogido el rifle → no dejamos cambiar
+            return;
+        }
+
+        if (currentWeapon == WeaponType.REVOLVER) {
+            currentWeapon = WeaponType.RIFLE;
+        } else {
+            currentWeapon = WeaponType.REVOLVER;
+        }
+        updateHud();
+    }
+
+
+
+    private void shootAt(double targetX, double targetY) {
+        if (ammo <= 0) {
+            return;
+        }
+
+        double px = player.getPosition().x;
+        double py = player.getPosition().y;
+
+        // dirección hacia el mouse (puedes normalizar dentro del Bullet)
+        double dx = targetX - px;
+        double dy = targetY - py;
+
+        // CREA AQUÍ TU BALA
+        // Ajusta el constructor a tu clase Bullet.
+        // Ejemplo genérico:
+        Bullet bullet = new Bullet(px, py, dx, dy);
+        bullets.addLast(bullet);
+
+        ammo--;
+        updateHud();
+
+        // activar animación de disparo
+        playerShooting = true;
+        lastShotTimeNanos = System.nanoTime();
+    }
+
+
+    private void spawnScenarioWeapons() {
+        weaponPickups.clear();
+
+        Integer col = scenario.getRifleCol();
+        Integer row = scenario.getRifleRow();
+
+        // este escenario no tiene rifle en el suelo
+        if (col == null || row == null) {
+            return;
+        }
+
+        int tileSize = gameMap.getTileSize();
+
+        double x = (col + 0.5) * tileSize;
+        double y = (row + 0.5) * tileSize;
+
+        weaponPickups.addLast(
+                new WeaponPickup(x, y, 40d, WeaponType.RIFLE)
+        );
+    }
+
+
+
+
+    private void updateWeaponPickups() {
+        if (weaponPickups == null || weaponPickups.isEmpty()) return;
+
+        datastructures.LinkedList<WeaponPickup> remaining = new datastructures.LinkedList<>();
+
+        double px = player.getPosition().x;
+        double py = player.getPosition().y;
+        double pr = player.getRadius();
+
+        for (WeaponPickup pickup : weaponPickups) {
+            double dx = pickup.getPosition().x - px;
+            double dy = pickup.getPosition().y - py;
+            double distSq = dx * dx + dy * dy;
+            double sumR   = pickup.getRadius() + pr;
+
+            if (distSq <= sumR * sumR) {
+                // lo recogió
+                if (pickup.getWeaponType() == WeaponType.RIFLE) {
+                    hasRifle = true;
+                    currentWeapon = WeaponType.RIFLE; // si quieres que se equipe de una
+                    updateHud();
+                }
+            } else {
+                remaining.addLast(pickup);
+            }
+        }
+
+        weaponPickups = remaining;
     }
 
 

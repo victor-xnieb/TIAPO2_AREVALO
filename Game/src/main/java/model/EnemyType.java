@@ -5,7 +5,7 @@ public enum EnemyType {
     BANDIT_MELEE(1, 90, null, 2),
     OUTLAW_RIFLE(2, 45, WeaponType.RIFLE, 3),
     HUNTER(1, 75, WeaponType.REVOLVER, 2),
-    GUARD(3, 40, WeaponType.RIFLE, 4),
+    GUARD(1, 40, WeaponType.RIFLE, 4),
     SCOUT(1, 110, WeaponType.REVOLVER, 1);
 
     public final int damage;       // daño al jugador
