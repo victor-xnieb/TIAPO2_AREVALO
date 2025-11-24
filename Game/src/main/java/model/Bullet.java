@@ -7,8 +7,25 @@ public class Bullet extends Entity {
     private double life; // en segundos
     private boolean dead;
 
-    public Bullet(double startX, double startY, double targetX, double targetY) {
+    // 🔥 NUEVO: tipo de arma que disparó esta bala
+    private WeaponType weaponType;
+
+    /**
+     * @param startX    posición inicial X de la bala
+     * @param startY    posición inicial Y de la bala
+     * @param targetX   punto al que se disparó (por ejemplo, mouseX)
+     * @param targetY   punto al que se disparó (por ejemplo, mouseY)
+     * @param weaponType arma que dispara (REVOLVER o RIFLE)
+     */
+    public Bullet(double startX,
+                  double startY,
+                  double targetX,
+                  double targetY,
+                  WeaponType weaponType) {
+
         super(startX, startY, 3); // radio pequeño
+
+        this.weaponType = weaponType; // guardamos el arma
 
         double dx = targetX - startX;
         double dy = targetY - startY;
@@ -54,5 +71,15 @@ public class Bullet extends Entity {
 
     public void markDead() {
         dead = true;
+    }
+
+    // 🔥 NUEVO: saber con qué arma salió la bala
+    public WeaponType getWeaponType() {
+        return weaponType;
+    }
+
+    // 🔥 NUEVO: daño según arma (rifle pega más)
+    public int getDamage() {
+        return (weaponType == WeaponType.RIFLE) ? 2 : 1;
     }
 }

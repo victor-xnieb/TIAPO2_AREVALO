@@ -12,7 +12,7 @@ public class Enemy extends Entity {
 
 
     public Enemy(double x, double y, EnemyType type) {
-        super(x, y, 16);
+        super(x, y, 28);
         this.type = type;
         this.health = type.maxHealth;
         this.shootCooldown = Math.random() * 1.5; // para que no disparen todos al mismo tiempo

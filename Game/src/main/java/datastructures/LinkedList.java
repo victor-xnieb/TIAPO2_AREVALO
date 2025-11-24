@@ -88,4 +88,12 @@ public class LinkedList<T> implements Iterable<T> {
         size = 0;
     }
 
+    public int size() {
+        return size;
+    }
+
+    public T getFirst() {
+        return head.value;
+    }
+
 }

@@ -19,6 +19,13 @@
                        style="-fx-text-fill: white; -fx-font-weight: bold;"/>
                 <Label fx:id="ammoLabel" text="Munición: 0"
                        style="-fx-text-fill: white; -fx-font-weight: bold;"/>
+                <Label fx:id="foodLabel" text=""/>
+                <Label fx:id="medLabel" text=""/>
+                <Label fx:id="messageLabel"
+                       text=""
+                       style="-fx-text-fill: white; -fx-font-weight: bold;" />
+
+
             </children>
         </HBox>
     </top>

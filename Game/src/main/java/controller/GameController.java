@@ -8,6 +8,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import model.*;
@@ -28,6 +29,13 @@ public class GameController {
 
     @FXML
     private Label weaponLabel;
+
+
+    // Iconos de arma en el HUD
+    private Image weaponRevolverIcon;
+    private Image weaponRifleIcon;
+    private ImageView weaponHudIcon;
+
 
     @FXML
     private Label ammoLabel;
@@ -111,6 +119,37 @@ public class GameController {
     private Image riflePickupImage;
 
 
+    // ítems de comida / curación
+    private LinkedList<ItemPickup> itemPickups;
+
+    // imágenes
+    private Image foodImage;
+    private Image healImage;
+
+    // inventario del jugador
+    private int foodCount = 0;
+    private int medCount  = 0;
+
+    // qué suministro está seleccionado actualmente
+    private ItemType selectedSupply = ItemType.FOOD;
+
+
+    @FXML
+    private Label foodLabel;
+
+    @FXML
+    private Label medLabel;
+
+    private ImageView foodHudIcon;
+    private ImageView medHudIcon;
+
+    @FXML
+    private Label messageLabel;
+
+// ...
+
+    private double messageTimer = 0.0;  // segundos restantes del mensaje
+
 
     @FXML
     private void initialize() {
@@ -153,23 +192,38 @@ public class GameController {
 
 
     private void handleShoot(double mouseXScreen, double mouseYScreen) {
-        if (!player.consumeAmmo(1)) {
-            return; // sin balas
+        // 1. Primero intentamos disparar desde el cargador
+        if (!player.tryShoot()) {
+            // cargador vacío o sin balas
+            if (player.getAmmo() <= 0) {
+                showTempMessage("No te quedan balas.");
+            } else {
+                showTempMessage("Cargador vacío. Pulsa F para recargar.");
+            }
+            return;
         }
 
         double w = gameCanvas.getWidth();
         double h = gameCanvas.getHeight();
 
-        // convertir de pantalla -> mundo (inversa de lo que hicimos en render)
+        // pantalla -> mundo
         double worldX = (mouseXScreen - w / 2) / zoom + cameraX;
         double worldY = (mouseYScreen - h / 2) / zoom + cameraY;
 
         double startX = player.getPosition().x;
         double startY = player.getPosition().y;
 
-        bullets.addLast(new Bullet(startX, startY, worldX, worldY));
+        // 🔥 ahora sí: creamos la bala con el arma actual
+        bullets.addLast(
+                new Bullet(startX, startY, worldX, worldY, player.getCurrentWeapon())
+        );
+
+        playerShooting = true;
+        lastShotTimeNanos = System.nanoTime();
+
         updateHud();
     }
+
 
 
 
@@ -244,6 +298,51 @@ public class GameController {
                 getClass().getResourceAsStream("/images/armas/rifle_piso.png")
         );
 
+
+        // comida y curaciones
+
+        itemPickups = new LinkedList<>();
+
+        foodImage = new Image(
+                getClass().getResourceAsStream("/images/objetos/comida.png")
+        );
+        healImage = new Image(
+                getClass().getResourceAsStream("/images/objetos/curacion.png")
+        );
+
+
+        //armas
+        // Iconos del arma en el HUD
+        weaponRevolverIcon = new Image(
+                getClass().getResourceAsStream("/images/armas/revolver.png")
+        );
+        weaponRifleIcon = new Image(
+                getClass().getResourceAsStream("/images/armas/rifle_piso.png")
+        );
+
+        // ImageView que va dentro del Label del arma
+        weaponHudIcon = new ImageView();
+        weaponHudIcon.setFitWidth(32);
+        weaponHudIcon.setFitHeight(32);
+
+        // asociamos el ImageView al Label
+        weaponLabel.setGraphic(weaponHudIcon);
+        // opcional: que no tenga texto
+        weaponLabel.setText("");
+
+
+        foodHudIcon = new ImageView(foodImage);
+        foodHudIcon.setFitWidth(24);
+        foodHudIcon.setFitHeight(24);
+
+        medHudIcon = new ImageView(healImage);
+        medHudIcon.setFitWidth(24);
+        medHudIcon.setFitHeight(24);
+
+        foodLabel.setGraphic(foodHudIcon);
+        medLabel.setGraphic(medHudIcon);
+
+
         // 5) Cámara + zoom inicial
         cameraX = player.getPosition().x;
         cameraY = player.getPosition().y;
@@ -262,6 +361,7 @@ public class GameController {
         // 6) Enemigos iniciales, HUD y loop
         spawnScenarioEnemies();
         spawnScenarioWeapons();
+        spawnScenarioItems();
         updateHud();
         startLoop();   // 👈 SIEMPRE al FINAL
     }
@@ -279,6 +379,7 @@ public class GameController {
             }
             case RIVER -> {
                 enemies.addLast(new Enemy(100, 400, EnemyType.GUARD));
+
                 enemies.addLast(new Enemy(650, 200, EnemyType.SCOUT));
             }
         }
@@ -314,12 +415,13 @@ public class GameController {
         updateEnemyBullets(delta);   // lo añadimos luego
         updateAmmoPickups();
         updateWeaponPickups();
+        updateItemPickups(delta);
         checkPlayerEnemyCollisions();
 
         enemySpawnTimer += delta;
         if (enemySpawnTimer >= enemySpawnInterval) {
             enemySpawnTimer = 0.0;
-            if (getEnemyCount() < maxEnemies) {
+            if (getEnemyCount() < scenario.getMaxEnemies()) {
                 spawnRandomEnemy();
             }
         }
@@ -327,6 +429,13 @@ public class GameController {
         if (player.isDead()) {
             timer.stop();
             mainApp.showMainMenu();
+        }
+
+        if (messageTimer > 0) {
+            messageTimer -= delta;
+            if (messageTimer <= 0 && messageLabel != null) {
+                messageLabel.setText("");
+            }
         }
 
         // cámara sigue al jugador
@@ -404,7 +513,7 @@ public class GameController {
 
             for (Enemy enemy : enemies) {
                 if (!enemy.isDead() && bullet.collidesWith(enemy)) {
-                    enemy.takeDamage(1);
+                    enemy.takeDamage(bullet.getDamage());
                     bullet.markDead();
 
                     // si el enemigo murió, suelta balas
@@ -481,8 +590,10 @@ public class GameController {
                 continue;
             }
 
+            Position place = findFreeSpawnPosition(enemies.getFirst().getRadius());
+
             EnemyType type = chooseEnemyTypeForScenario();
-            enemies.addLast(new Enemy(x, y, type));
+            enemies.addLast(new Enemy(place.x, place.y, type));
             break; // spawn hecho
         }
     }
@@ -532,11 +643,6 @@ public class GameController {
         }
 
         playerMoving = moved;
-
-        // 🔁 antes usábamos Q, ahora C
-        if (pressedKeys.contains(KeyCode.C)) {
-            toggleWeapon();
-        }
 
         updateHud();
     }
@@ -611,7 +717,6 @@ public class GameController {
 
 
         // ---- enemigos (animados con frames) ----
-        // ---- enemigos (animados con frames) ----
         Image enemyFrame = null;
         if (enemyFrames != null && enemyFrames.length > 0) {
             long now = System.nanoTime();
@@ -668,6 +773,26 @@ public class GameController {
             }
         }
 
+        // ítems: comida y curación en el mapa
+        if (itemPickups != null) {
+            for (ItemPickup item : itemPickups) {
+                if (!item.isAvailable()) continue;
+
+                Image img = (item.getType() == ItemType.FOOD) ? foodImage : healImage;
+
+                double size5 = item.getRadius() * 2;
+
+                gc.drawImage(
+                        img,
+                        item.getPosition().x - size5 / 2,
+                        item.getPosition().y - size5 / 2,
+                        size5,
+                        size5
+                );
+            }
+        }
+
+
 
         // ---- balas del jugador ----
         gc.setFill(Color.YELLOW);
@@ -715,15 +840,68 @@ public class GameController {
 
     private void updateHud() {
         healthLabel.setText("Vida: " + player.getHealth());
-        weaponLabel.setText("Arma: " + currentWeapon);
-        ammoLabel.setText("Munición: " + player.getAmmo());
+
+        // Cargador y total
+        ammoLabel.setText(
+                "Cargador: " + player.getMagazineAmmo() +
+                        " / Total: " + player.getAmmo()
+        );
+
+        // Icono de arma (esto ya lo tenías)
+        if (weaponHudIcon != null) {
+            WeaponType wt = player.getCurrentWeapon();
+            if (wt == WeaponType.REVOLVER) {
+                weaponHudIcon.setImage(weaponRevolverIcon);
+            } else if (wt == WeaponType.RIFLE) {
+                if (hasRifle) {
+                    weaponHudIcon.setImage(weaponRifleIcon);
+                } else {
+                    weaponHudIcon.setImage(weaponRevolverIcon);
+                }
+            } else {
+                weaponHudIcon.setImage(null);
+            }
+        }
+
+        // suministros
+        foodLabel.setText(" x" + foodCount);
+        medLabel.setText(" x" + medCount);
+
+        if (selectedSupply == ItemType.FOOD) {
+            foodLabel.setStyle("-fx-font-weight: bold;");
+            medLabel.setStyle("");
+        } else {
+            medLabel.setStyle("-fx-font-weight: bold;");
+            foodLabel.setStyle("");
+        }
     }
+
+
+
 
 
     // manejadores de teclado, conectados desde MainApp
     public void onKeyPressed(KeyCode code) {
         pressedKeys.add(code);
+
+        switch (code) {
+            case C:
+                toggleWeapon();      // cambiar arma
+                break;
+            case E:
+                selectNextSupply();  // cambiar suministro seleccionado
+                break;
+            case R:
+                useSelectedSupply(); // usar suministro
+                break;
+            case F:
+                reloadWeapon();      // 🔥 recargar arma
+                break;
+            default:
+                break;
+        }
     }
+
 
     public void onKeyReleased(KeyCode code) {
         pressedKeys.remove(code);
@@ -855,46 +1033,55 @@ public class GameController {
 
 
     private void toggleWeapon() {
+        // si aún no tiene rifle, solo puede usar revólver
         if (!hasRifle) {
-            // todavía no ha recogido el rifle → no dejamos cambiar
+            if (player.getCurrentWeapon() != WeaponType.REVOLVER) {
+                player.setCurrentWeapon(WeaponType.REVOLVER);
+                updateHud();
+            }
             return;
         }
 
-        if (currentWeapon == WeaponType.REVOLVER) {
-            currentWeapon = WeaponType.RIFLE;
+        // si ya tiene rifle, alternamos
+        if (player.getCurrentWeapon() == WeaponType.REVOLVER) {
+            player.setCurrentWeapon(WeaponType.RIFLE);
         } else {
-            currentWeapon = WeaponType.REVOLVER;
+            player.setCurrentWeapon(WeaponType.REVOLVER);
         }
         updateHud();
     }
 
 
 
+
     private void shootAt(double targetX, double targetY) {
-        if (ammo <= 0) {
+        // primero verificamos si puede disparar desde el cargador
+        if (!player.tryShoot()) {
+            // cargador vacío
+            if (player.getAmmo() <= 0) {
+                showTempMessage("No te quedan balas.");
+            } else {
+                showTempMessage("Cargador vacío. Pulsa F para recargar.");
+            }
             return;
         }
 
         double px = player.getPosition().x;
         double py = player.getPosition().y;
 
-        // dirección hacia el mouse (puedes normalizar dentro del Bullet)
         double dx = targetX - px;
         double dy = targetY - py;
 
-        // CREA AQUÍ TU BALA
-        // Ajusta el constructor a tu clase Bullet.
-        // Ejemplo genérico:
-        Bullet bullet = new Bullet(px, py, dx, dy);
+        // pasa el tipo de arma al proyectil para que haga más daño si es rifle
+        Bullet bullet = new Bullet(px, py, dx, dy, player.getCurrentWeapon());
         bullets.addLast(bullet);
 
-        ammo--;
-        updateHud();
-
-        // activar animación de disparo
         playerShooting = true;
         lastShotTimeNanos = System.nanoTime();
+
+        updateHud();
     }
+
 
 
     private void spawnScenarioWeapons() {
@@ -924,7 +1111,7 @@ public class GameController {
     private void updateWeaponPickups() {
         if (weaponPickups == null || weaponPickups.isEmpty()) return;
 
-        datastructures.LinkedList<WeaponPickup> remaining = new datastructures.LinkedList<>();
+        LinkedList<WeaponPickup> remaining = new LinkedList<>();
 
         double px = player.getPosition().x;
         double py = player.getPosition().y;
@@ -937,18 +1124,210 @@ public class GameController {
             double sumR   = pickup.getRadius() + pr;
 
             if (distSq <= sumR * sumR) {
-                // lo recogió
+                // 🔥 recogió un arma
                 if (pickup.getWeaponType() == WeaponType.RIFLE) {
                     hasRifle = true;
-                    currentWeapon = WeaponType.RIFLE; // si quieres que se equipe de una
+                    // si quieres que se equipe automáticamente:
+                    player.setCurrentWeapon(WeaponType.RIFLE);
                     updateHud();
                 }
+                // no lo volvemos a añadir, desaparece del mapa
             } else {
                 remaining.addLast(pickup);
             }
         }
 
         weaponPickups = remaining;
+    }
+
+
+    // posición aleatoria en un tile WALKABLE (0) y opcionalmente sin acantilado
+    private Position findFreeSpawnPosition(double enemyRadius) {
+        int cols = gameMap.getCols();
+        int rows = gameMap.getRows();
+        int tileSize = gameMap.getTileSize();
+
+        // intentamos varias veces hasta encontrar un lugar decente
+        for (int attempt = 0; attempt < 200; attempt++) {
+            int col = ThreadLocalRandom.current().nextInt(cols);
+            int row = ThreadLocalRandom.current().nextInt(rows);
+
+            int tile = gameMap.getTile(col, row);
+
+            // solo suelo libre (0)
+            if (tile != GameMap.TILE_FREE) {
+                continue;
+            }
+
+            double x = (col + 0.5) * tileSize;
+            double y = (row + 0.5) * tileSize;
+
+            // que no sea acantilado (por si el CSV tiene un 2 mezclado)
+            if (scenario == Scenario.MOUNTAIN && gameMap.isCliffAt(x, y)) {
+                continue;
+            }
+
+            // que de verdad pueda moverse ahí (por el radio)
+            if (!gameMap.canMoveTo(x, y, enemyRadius)) {
+                continue;
+            }
+
+            // opcional: que no aparezca encima del jugador
+            double dx = x - player.getPosition().x;
+            double dy = y - player.getPosition().y;
+            double minDist = 150; // mínimo 150 px de distancia al jugador
+            if (dx * dx + dy * dy < minDist * minDist) {
+                continue;
+            }
+
+            return new Position(x, y);
+        }
+
+        // si no encontramos nada "bonito", devolvemos el centro del mapa como fallback
+        return new Position(gameMap.getWidth() / 2.0, gameMap.getHeight() / 2.0);
+    }
+
+
+    private void spawnScenarioItems() {
+        itemPickups.clear();
+
+        int tileSize = gameMap.getTileSize();
+
+        // comidas
+        int[][] foodTiles = scenario.getFoodTiles();
+        if (foodTiles != null) {
+            for (int[] t : foodTiles) {
+                int col = t[0];
+                int row = t[1];
+
+                double x = (col + 0.5) * tileSize;
+                double y = (row + 0.5) * tileSize;
+
+                itemPickups.addLast(
+                        new ItemPickup(x, y, 30, ItemType.FOOD, 20.0) // reaparece en 20 s
+                );
+            }
+        }
+
+        // curaciones
+        int[][] healTiles = scenario.getHealTiles();
+        if (healTiles != null) {
+            for (int[] t : healTiles) {
+                int col = t[0];
+                int row = t[1];
+
+                double x = (col + 0.5) * tileSize;
+                double y = (row + 0.5) * tileSize;
+
+                itemPickups.addLast(
+                        new ItemPickup(x, y, 30, ItemType.HEAL, 25.0) // respawn 25 s, por ejemplo
+                );
+            }
+        }
+    }
+
+
+    private void updateItemPickups(double delta) {
+        if (itemPickups == null || itemPickups.isEmpty()) return;
+
+        double px = player.getPosition().x;
+        double py = player.getPosition().y;
+        double pr = player.getRadius();
+
+        for (ItemPickup item : itemPickups) {
+
+            // actualizar respawn
+            item.update(delta);
+
+            if (!item.isAvailable()) {
+                continue; // todavía no está en el suelo
+            }
+
+            double dx = item.getPosition().x - px;
+            double dy = item.getPosition().y - py;
+            double distSq = dx * dx + dy * dy;
+            double sumR   = item.getRadius() + pr;
+
+            if (distSq <= sumR * sumR) {
+                // 💥 jugador lo recoge
+                if (item.getType() == ItemType.FOOD) {
+                    foodCount++;
+                } else if (item.getType() == ItemType.HEAL) {
+                    medCount++;
+                }
+
+                item.pickUp(); // desaparece y arranca el temporizador de respawn
+                updateHud();
+            }
+        }
+    }
+
+    private void selectNextSupply() {
+        // solo dos tipos, así que es un toggle simple
+        if (selectedSupply == ItemType.FOOD) {
+            selectedSupply = ItemType.HEAL;
+        } else {
+            selectedSupply = ItemType.FOOD;
+        }
+        updateHud();
+    }
+
+    private void useSelectedSupply() {
+        // si está a vida máxima, no dejamos usar nada
+        if (player.getHealth() >= player.getMaxHealth()) {
+            showTempMessage("Ya tienes la vida al máximo.");
+            return;
+        }
+
+        if (selectedSupply == ItemType.FOOD) {
+            if (foodCount <= 0) return;
+
+            // consumir comida
+            foodCount--;
+
+            // comida cura poco
+            player.heal(1);
+
+        } else { // MEDICINA
+            if (medCount <= 0) return;
+
+            // consumir medicina
+            medCount--;
+
+            // medicina cura más
+            player.heal(2);
+        }
+
+        updateHud();
+    }
+
+
+    private void showTempMessage(String text) {
+        if (messageLabel == null) return;
+        messageLabel.setText(text);
+        messageTimer = 2.0; // lo mostramos 2 segundos
+    }
+
+
+    private void reloadWeapon() {
+        boolean reloaded = player.reload();
+
+        if (!reloaded) {
+            int reserve = player.getReserveAmmo();
+            int cap     = player.getCurrentMagCapacity();
+
+            if (reserve <= 0) {
+                showTempMessage("No tienes balas para recargar.");
+            } else if (player.getMagazineAmmo() >= cap) {
+                showTempMessage("El cargador ya está lleno.");
+            } else {
+                showTempMessage("No se pudo recargar.");
+            }
+        } else {
+            showTempMessage("Recargando " + player.getCurrentWeaponName() + "...");
+        }
+
+        updateHud();
     }
 
 
