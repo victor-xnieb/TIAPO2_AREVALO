@@ -7,14 +7,15 @@ import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
+import java.util.HashSet;
+import java.util.Set;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import model.*;
 
-import java.util.HashSet;
-import java.util.Set;
+
 
 import java.util.concurrent.ThreadLocalRandom;
 import model.Bullet;
@@ -150,6 +151,35 @@ public class GameController {
 
     private double messageTimer = 0.0;  // segundos restantes del mensaje
 
+    @FXML
+    private ImageView heart1;
+
+    @FXML
+    private ImageView heart2;
+
+    @FXML
+    private ImageView heart3;
+
+    // imágenes de corazones
+    private Image fullHeartImage;
+    private Image emptyHeartImage;
+
+    // ================== LLAVES Y PORTAL (separado de comida/medicina) ==================
+    private LinkedList<ItemPickup> keyPickups;
+
+    private Image keyImage;
+    private Image portalImage;
+
+    private int keysCollected = 0;
+    private final int keysNeeded = 4;
+
+    private boolean portalActive = false;
+    private double portalX;
+    private double portalY;
+    private double portalRadius = 95; // radio para colisión con el jugador
+
+
+
 
     @FXML
     private void initialize() {
@@ -276,6 +306,10 @@ public class GameController {
                 new Image(getClass().getResourceAsStream("/images/jugador/jugador_rifle.png"))
         };
 
+        // corazones
+        fullHeartImage  = new Image(getClass().getResourceAsStream("/images/objetos/corazon_lleno.png"));
+        emptyHeartImage = new Image(getClass().getResourceAsStream("/images/objetos/corazon_vacio.png"));
+
         // 4) Jugador y listas
         player = new Player(gameMap.getWidth() / 2.0, gameMap.getHeight() / 2.0);
         enemies = new LinkedList<>();
@@ -320,6 +354,16 @@ public class GameController {
                 getClass().getResourceAsStream("/images/armas/rifle_piso.png")
         );
 
+
+        //llaves y puerta
+        keysCollected = 0;
+        portalActive  = false;
+
+        keyImage    = new Image(getClass().getResourceAsStream("/images/objetos/llave.png"));
+        portalImage = new Image(getClass().getResourceAsStream("/images/objetos/portal.png"));
+
+        keyPickups = new LinkedList<>();
+
         // ImageView que va dentro del Label del arma
         weaponHudIcon = new ImageView();
         weaponHudIcon.setFitWidth(32);
@@ -362,6 +406,8 @@ public class GameController {
         spawnScenarioEnemies();
         spawnScenarioWeapons();
         spawnScenarioItems();
+        spawnKeysForScenario();
+        updateHearts();
         updateHud();
         startLoop();   // 👈 SIEMPRE al FINAL
     }
@@ -416,7 +462,11 @@ public class GameController {
         updateAmmoPickups();
         updateWeaponPickups();
         updateItemPickups(delta);
+        updateKeyPickups(delta);
         checkPlayerEnemyCollisions();
+        checkPortalCollision();
+
+
 
         enemySpawnTimer += delta;
         if (enemySpawnTimer >= enemySpawnInterval) {
@@ -705,6 +755,31 @@ public class GameController {
         // gc.setFill(Color.color(1, 0, 0, 0.3));
         // for (...) if tile==1 gc.fillRect(...);
 
+        // ----- LLAVES (separado de comida/medicina) -----
+        for (ItemPickup key : keyPickups) {
+            if (!key.isActive()) continue;
+
+            double size = key.getRadius() * 2;
+            double x = key.getPosition().x - size / 2;
+            double y = key.getPosition().y - size / 2;
+
+            gc.drawImage(keyImage, x, y, size, size);
+        }
+
+        // ----- PORTAL -----
+        if (portalActive) {
+            double size = portalRadius * 2;
+            gc.drawImage(
+                    portalImage,
+                    portalX - size / 2,
+                    portalY - size / 2,
+                    size,
+                    size
+            );
+        }
+
+
+
         // ---- jugador ----
         // jugador con sprite
         Image sprite = choosePlayerSprite();
@@ -839,13 +914,15 @@ public class GameController {
 
 
     private void updateHud() {
-        healthLabel.setText("Vida: " + player.getHealth());
+        //healthLabel.setText("Vida: " + player.getHealth());
 
         // Cargador y total
         ammoLabel.setText(
                 "Cargador: " + player.getMagazineAmmo() +
                         " / Total: " + player.getAmmo()
         );
+
+        updateHearts();
 
         // Icono de arma (esto ya lo tenías)
         if (weaponHudIcon != null) {
@@ -1329,6 +1406,143 @@ public class GameController {
 
         updateHud();
     }
+
+
+    private void updateHearts() {
+        // suponiendo que health va de 0 a 3
+        int lives = player.getHealth(); // o player.getLives()
+
+        setHeartImage(heart1, lives >= 1);
+        setHeartImage(heart2, lives >= 2);
+        setHeartImage(heart3, lives >= 3);
+    }
+
+    private void setHeartImage(ImageView view, boolean full) {
+        if (view == null) return; // por si acaso
+        view.setImage(full ? fullHeartImage : emptyHeartImage);
+    }
+
+
+    private void spawnKeysForScenario() {
+        keyPickups.clear();
+
+        if (scenario == Scenario.PLAIN) {
+            // Escenario 1 - Llanuras
+            // CH 99  -> colIdx=85, rowIdx=98
+            addKeyAt(115, 32);
+
+            // DD 97  -> colIdx=107, rowIdx=96
+            addKeyAt(11, 42);
+
+            // BP 33  -> colIdx=67, rowIdx=32
+            addKeyAt(9, 94);
+
+            // Cuarta llave: pon una posición que te guste.
+            // De momento dejo una aproximada en medio del mapa:
+            addKeyAt(144, 79); // <-- cámbiala por la celda que quieras
+
+        } else if (scenario == Scenario.MOUNTAIN) {
+            // Escenario 2 - Montañas
+            // Coordenadas de ejemplo, cámbialas por las tuyas:
+            addKeyAt(51, 14);
+            addKeyAt(40, 89);
+            addKeyAt(137, 31);
+            addKeyAt(37, 39);
+
+        } else if (scenario == Scenario.RIVER) {
+            // Escenario 3 - Río
+            // También de ejemplo:
+            addKeyAt(120, 64);
+            addKeyAt(52, 64);
+            addKeyAt(74, 2);
+            addKeyAt(48, 11);
+        }
+    }
+
+
+    private void updateKeyPickups(double delta) {
+        for (ItemPickup key : keyPickups) {
+            //key.update(delta);   // por si algún día quieres respawn
+
+            if (!key.isActive()) continue;
+
+            if (player.collidesWith(key)) {
+                key.consume();
+                keysCollected++;
+                checkPortalSpawn();
+            }
+        }
+    }
+
+
+    private void checkPortalSpawn() {
+        if (portalActive) return;
+        if (keysCollected < keysNeeded) return;
+
+        int ts = gameMap.getTileSize();
+
+        if (scenario == Scenario.PLAIN) {
+            // TODO: posición del portal del escenario 1 (en columnas/filas numéricas)
+            int col = 85 /* colPortalEsc1 */;
+            int row = 98 /* rowPortalEsc1 */;
+            portalX = (col + 0.5) * ts;
+            portalY = (row + 0.5) * ts;
+
+        } else if (scenario == Scenario.MOUNTAIN) {
+            int col = 107/* colPortalEsc2 */;
+            int row = 96/* rowPortalEsc2 */;
+            portalX = (col + 0.5) * ts;
+            portalY = (row + 0.5) * ts;
+
+        } else { // RIVER
+            int col = 67/* colPortalEsc3 */;
+            int row = 32/* rowPortalEsc3 */;
+            portalX = (col + 0.5) * ts;
+            portalY = (row + 0.5) * ts;
+        }
+
+        portalActive = true;
+    }
+
+
+    private void checkPortalCollision() {
+        if (!portalActive) return;
+
+        double dx = player.getPosition().x - portalX;
+        double dy = player.getPosition().y - portalY;
+        double r  = player.getRadius() + portalRadius;
+
+        if (dx * dx + dy * dy <= r * r) {
+            goToNextScenario();
+        }
+    }
+
+
+    private void goToNextScenario() {
+        timer.stop();
+
+        if (scenario == Scenario.PLAIN) {
+            mainApp.showGame(Scenario.MOUNTAIN);
+        } else if (scenario == Scenario.MOUNTAIN) {
+            mainApp.showGame(Scenario.RIVER);
+        } else {
+            // último escenario: por ejemplo, volver al menú
+            mainApp.showMainMenu();
+        }
+    }
+
+    // Añade una llave centrada en el tile (col, row)
+    private void addKeyAt(int col, int row) {
+        double x = (col + 0.5) * gameMap.getTileSize();
+        double y = (row + 0.5) * gameMap.getTileSize();
+        double radius = 35;
+
+        // respawnTime = 0  → nunca reaparecen
+        ItemPickup key = new ItemPickup(x, y, radius, ItemType.KEY, 0.0);
+        keyPickups.addLast(key);
+    }
+
+
 
 
     @FXML

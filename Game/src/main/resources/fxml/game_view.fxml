@@ -6,6 +6,7 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 
+<?import javafx.scene.image.ImageView?>
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="controller.GameController">
@@ -13,8 +14,9 @@
     <top>
         <HBox spacing="20" style="-fx-padding: 10; -fx-background-color: rgba(0,0,0,0.4);">
             <children>
-                <Label fx:id="healthLabel" text="Vida: 3"
-                       style="-fx-text-fill: white; -fx-font-weight: bold;"/>
+                <ImageView fx:id="heart1" fitWidth="24" fitHeight="24" preserveRatio="true"/>
+                <ImageView fx:id="heart2" fitWidth="24" fitHeight="24" preserveRatio="true"/>
+                <ImageView fx:id="heart3" fitWidth="24" fitHeight="24" preserveRatio="true"/>
                 <Label fx:id="weaponLabel" text="Arma: RIFLE"
                        style="-fx-text-fill: white; -fx-font-weight: bold;"/>
                 <Label fx:id="ammoLabel" text="Munición: 0"
