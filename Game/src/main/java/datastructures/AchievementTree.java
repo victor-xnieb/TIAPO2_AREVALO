@@ -1,5 +1,7 @@
 package datastructures;
 
+import java.util.function.Consumer;
+
 public class AchievementTree {
 
     public static class Achievement implements Comparable<Achievement> {
@@ -11,6 +13,19 @@ public class AchievementTree {
             this.name = name;
             this.description = description;
             this.points = points;
+        }
+
+        // === GETTERS NUEVOS ===
+        public String getName() {
+            return name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public int getPoints() {
+            return points;
         }
 
         @Override
@@ -44,6 +59,7 @@ public class AchievementTree {
         return n;
     }
 
+    // === lo que ya tenías ===
     public String inOrderString() {
         StringBuilder sb = new StringBuilder();
         traverseInOrder(root, sb);
@@ -56,4 +72,41 @@ public class AchievementTree {
         sb.append(n.value).append("\n");
         traverseInOrder(n.right, sb);
     }
+
+
+    public void forEachInOrder(Consumer<Achievement> consumer) {
+        traverseInOrder(root, consumer);
+    }
+
+    private void traverseInOrder(Node n, Consumer<Achievement> consumer) {
+        if (n == null) return;
+        traverseInOrder(n.left, consumer);
+        consumer.accept(n.value);
+        traverseInOrder(n.right, consumer);
+    }
+
+    public Achievement findByName(String name) {
+        return findByNameRec(root, name);
+    }
+
+    private Achievement findByNameRec(Node node, String name) {
+        if (node == null) {
+            return null;
+        }
+
+        // Coincide este nodo
+        if (node.value.name.equalsIgnoreCase(name)) {
+            return node.value;
+        }
+
+        // Buscamos primero en la izquierda
+        Achievement left = findByNameRec(node.left, name);
+        if (left != null) {
+            return left;
+        }
+
+        // Si no estaba a la izquierda, buscamos en la derecha
+        return findByNameRec(node.right, name);
+    }
+
 }

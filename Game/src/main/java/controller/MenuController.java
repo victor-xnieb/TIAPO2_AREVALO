@@ -30,7 +30,7 @@ public class MenuController {
 
     @FXML
     private void handleAchievements(ActionEvent event) {
-        mainApp.showAchievements();
+        mainApp.showAchievementsView();
     }
 
     @FXML

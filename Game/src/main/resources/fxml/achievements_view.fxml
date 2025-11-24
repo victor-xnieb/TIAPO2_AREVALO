@@ -7,33 +7,18 @@
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="controller.AchievementsController">
 
-    <top>
-        <Label text="Árbol de logros"
-               BorderPane.alignment="CENTER"
-               style="-fx-font-size: 20px; -fx-padding: 10;" />
-    </top>
-
     <center>
-        <TreeView fx:id="achievementsTree"
-                  prefWidth="400"
-                  prefHeight="400" />
+        <ListView fx:id="achievementsList"/>
     </center>
 
-    <right>
-        <VBox spacing="8" style="-fx-padding: 10;">
-            <Label text="Detalle del logro:"
-                   style="-fx-font-weight: bold;" />
-            <Label fx:id="nameLabel" text="Nombre" wrapText="true" />
-            <Label fx:id="descLabel" text="Descripción" wrapText="true" />
-            <Label fx:id="stateLabel" text="Estado" wrapText="true" />
-        </VBox>
-    </right>
+    <top>
+        <Label text="Árbol de logros" BorderPane.alignment="CENTER"/>
+    </top>
 
     <bottom>
-        <Button text="Volver"
-                BorderPane.alignment="CENTER"
-                onAction="#onBack"
-                style="-fx-padding: 8 16 8 16; -fx-font-size: 14px;" />
+        <Button text="Volver al menú"
+                onAction="#onBackToMenu"
+                BorderPane.alignment="CENTER"/>
     </bottom>
 
 </BorderPane>

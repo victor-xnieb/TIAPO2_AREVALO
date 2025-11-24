@@ -6,6 +6,7 @@ import javafx.animation.AnimationTimer;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import java.util.HashSet;
 import java.util.Set;
@@ -40,6 +41,10 @@ public class GameController {
 
     @FXML
     private Label ammoLabel;
+
+    @FXML
+    private Button achievementsButton;
+
 
     private MainApp mainApp;
     private Scenario scenario;
@@ -178,6 +183,39 @@ public class GameController {
     private double portalY;
     private double portalRadius = 95; // radio para colisión con el jugador
 
+    private AchievementsManager achievementsManager;
+    private int totalEnemiesKilled = 0;
+    private int rifleKills = 0;
+
+    public void setAchievementsManager(AchievementsManager manager) {
+        this.achievementsManager = manager;
+    }
+
+
+    private void onEnemyKilled(boolean killedWithRifle) {
+        totalEnemiesKilled++;
+        enemiesKilledThisLevel++;
+
+        if (totalEnemiesKilled >= 1) {
+            achievementsManager.unlock("FIRST_BLOOD");
+        }
+        if (totalEnemiesKilled >= 5) {
+            achievementsManager.unlock("HUNTER_NOVICE");
+        }
+        if (totalEnemiesKilled >= 15) {
+            achievementsManager.unlock("HUNTER_EXPERT");
+        }
+        if (totalEnemiesKilled >= 30) {
+            achievementsManager.unlock("HUNTER_LEGEND");
+        }
+
+        if (killedWithRifle) {
+            rifleKills++;
+            if (rifleKills >= 10) {
+                achievementsManager.unlock("RIFLE_MASTER");
+            }
+        }
+    }
 
 
 
@@ -222,6 +260,13 @@ public class GameController {
 
 
     private void handleShoot(double mouseXScreen, double mouseYScreen) {
+
+        shotFiredThisLevel = true; // 👈 ya no eres pacifista, amigo del gatillo
+
+        if (currentWeapon == WeaponType.RIFLE) {
+            usedRifleThisLevel = true;
+        }
+
         // 1. Primero intentamos disparar desde el cargador
         if (!player.tryShoot()) {
             // cargador vacío o sin balas
@@ -402,6 +447,12 @@ public class GameController {
 
         clampCameraToWorld();
 
+        enemiesKilledThisLevel = 0;
+        tookDamageThisLevel = false;
+        wasAtOneLifeThisLevel = false;
+        shotFiredThisLevel = false;
+        usedRifleThisLevel = false;
+
         // 6) Enemigos iniciales, HUD y loop
         spawnScenarioEnemies();
         spawnScenarioWeapons();
@@ -409,6 +460,9 @@ public class GameController {
         spawnKeysForScenario();
         updateHearts();
         updateHud();
+        if (achievementsManager != null) {
+            achievementsManager.unlock("WELCOME");
+        }
         startLoop();   // 👈 SIEMPRE al FINAL
     }
 
@@ -478,8 +532,10 @@ public class GameController {
 
         if (player.isDead()) {
             timer.stop();
-            mainApp.showMainMenu();
+            mainApp.showGameOver();
+            return;  // por si acaso
         }
+
 
         if (messageTimer > 0) {
             messageTimer -= delta;
@@ -568,6 +624,8 @@ public class GameController {
 
                     // si el enemigo murió, suelta balas
                     if (enemy.isDead()) {
+                        boolean killedWithRifle = (currentWeapon == WeaponType.RIFLE);
+                        onEnemyKilled(killedWithRifle);
                         spawnAmmoPickup(enemy);
                     }
                     break;
@@ -716,6 +774,13 @@ public class GameController {
             if (enemy.collidesWith(player)) {
                 // daño según el tipo de enemigo
                 player.takeDamage(enemy.getType().damage);
+
+                tookDamageThisLevel = true;
+
+                if (player.getHealth() == 1) {
+                    wasAtOneLifeThisLevel = true;
+                }
+
                 playerHitCooldown = 1.0; // 1 segundo sin volver a recibir daño por contacto
                 updateHud();
                 break;
@@ -1373,6 +1438,15 @@ public class GameController {
 
             // medicina cura más
             player.heal(2);
+
+
+            medicinesUsed++;
+            if (medicinesUsed >= 3) {
+                achievementsManager.unlock("HEALER_APPRENTICE");
+            }
+            if (medicinesUsed >= 8) {
+                achievementsManager.unlock("HEALER_MASTER");
+            }
         }
 
         updateHud();
@@ -1402,6 +1476,11 @@ public class GameController {
             }
         } else {
             showTempMessage("Recargando " + player.getCurrentWeaponName() + "...");
+
+            totalReloads++;
+            if (totalReloads == 1) {
+                achievementsManager.unlock("FIRST_RELOAD");
+            }
         }
 
         updateHud();
@@ -1469,6 +1548,18 @@ public class GameController {
             if (player.collidesWith(key)) {
                 key.consume();
                 keysCollected++;
+
+
+                if (scenario == Scenario.PLAIN && keysCollected >= 4) {
+                    achievementsManager.unlock("KEY_COLLECTOR_I");
+                }
+                if (scenario == Scenario.MOUNTAIN && keysCollected >= 4) {
+                    achievementsManager.unlock("KEY_COLLECTOR_II");
+                }
+                if (scenario == Scenario.RIVER && keysCollected >= 4) {
+                    achievementsManager.unlock("KEY_COLLECTOR_III");
+                }
+
                 checkPortalSpawn();
             }
         }
@@ -1513,7 +1604,16 @@ public class GameController {
         double r  = player.getRadius() + portalRadius;
 
         if (dx * dx + dy * dy <= r * r) {
-            goToNextScenario();
+
+            checkEndOfLevelAchievements();
+
+            // si estamos en el último escenario -> pantalla de victoria
+            if (scenario == Scenario.RIVER) {
+                timer.stop();
+                mainApp.showVictory();
+            } else {
+                goToNextScenario();
+            }
         }
     }
 
@@ -1527,6 +1627,7 @@ public class GameController {
             mainApp.showGame(Scenario.RIVER);
         } else {
             // último escenario: por ejemplo, volver al menú
+            achievementsManager.unlock("GAME_FINISHED");
             mainApp.showMainMenu();
         }
     }
@@ -1545,9 +1646,71 @@ public class GameController {
 
 
 
+    // ---- LOGROS: contadores globales ----
+    private int totalReloads = 0;       // cuántas veces recarga
+    private int medicinesUsed = 0;      // cuántas medicinas usó en toda la partida;
+
+    // ---- LOGROS: estado por nivel (se resetean en initGame) ----
+    private int enemiesKilledThisLevel = 0;
+    private boolean tookDamageThisLevel = false;
+    private boolean wasAtOneLifeThisLevel = false;
+    private boolean shotFiredThisLevel = false;
+    private boolean usedRifleThisLevel = false;   // cambiaste a rifle al menos una vez
+
+
+
+    private void checkEndOfLevelAchievements() {
+
+        // 1) AMMO_SAVER – terminar con 30 balas o más
+        if (player.getAmmo() >= 30) {
+            achievementsManager.unlock("AMMO_SAVER");
+        }
+
+        // 2) LAST_CHANCE – alguna vez estuvo a 1 corazón y AÚN ASÍ terminó el nivel
+        if (wasAtOneLifeThisLevel) {
+            achievementsManager.unlock("LAST_CHANCE");
+        }
+
+        // 3) PACIFIST – terminó el nivel sin disparar
+        if (!shotFiredThisLevel) {
+            achievementsManager.unlock("PACIFIST");
+        }
+
+        // 4) REVOLVER_ONLY – terminó el escenario 1 sin usar el rifle
+        if (scenario == Scenario.PLAIN && !usedRifleThisLevel) {
+            achievementsManager.unlock("REVOLVER_ONLY");
+        }
+
+        // 5) IRON_MAN – por ejemplo, escenario 2 sin recibir daño
+        if (scenario == Scenario.MOUNTAIN && !tookDamageThisLevel) {
+            achievementsManager.unlock("IRON_MAN");
+        }
+
+        // 6) NO_DAMAGE_LEVEL – cualquier escenario sin recibir daño
+        if (!tookDamageThisLevel) {
+            achievementsManager.unlock("NO_DAMAGE_LEVEL");
+        }
+    }
+
+
+
     @FXML
     private void handleBackToMenu() {
         if (timer != null) timer.stop();
         mainApp.showMainMenu();
     }
+
+    @FXML
+    private void onShowAchievements() {
+        // Pausamos el juego
+        //if (timer != null) {
+            //timer.stop();
+        //}
+
+        // Abrimos la pantalla de logros desde MainApp
+        if (mainApp != null) {
+            mainApp.showAchievementsView();
+        }
+    }
+
 }

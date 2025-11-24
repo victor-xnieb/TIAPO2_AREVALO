@@ -1,38 +1,49 @@
 package controller;
 
-import app.MainApp;
-import datastructures.AchievementTree;
 import javafx.fxml.FXML;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.ListView;
+import javafx.stage.Stage;
+import model.AchievementsManager;
+import app.MainApp;
+
+import java.util.List;
 
 public class AchievementsController {
 
-    private MainApp mainApp;
-
     @FXML
-    private TextArea achievementArea;
+    private ListView<String> achievementsList;
 
-    private AchievementTree achievementTree;
+    private Stage stage;
+
+    private AchievementsManager achievementsManager;
+    private MainApp mainApp;
 
     public void setMainApp(MainApp mainApp) {
         this.mainApp = mainApp;
-        initAchievements();
     }
 
-    private void initAchievements() {
-        achievementTree = new AchievementTree();
-        achievementTree.insert(new AchievementTree.Achievement(
-                "Primer disparo", "Realizaste tu primer disparo.", 10));
-        achievementTree.insert(new AchievementTree.Achievement(
-                "Primera victoria", "Completaste un escenario.", 30));
-        achievementTree.insert(new AchievementTree.Achievement(
-                "Superviviente", "Sobreviviste mucho tiempo.", 50));
+    // NUEVO: lo llama MainApp al crear la ventana
+    public void setStage(Stage stage) {
+        this.stage = stage;
+    }
 
-        achievementArea.setText(achievementTree.inOrderString());
+    public void setAchievementsManager(AchievementsManager manager) {
+        this.achievementsManager = manager;
+        refreshList();
+    }
+
+    private void refreshList() {
+        if (achievementsManager == null) return;
+
+        List<String> lines = achievementsManager.getAllAchievementLines();
+        achievementsList.getItems().setAll(lines);
     }
 
     @FXML
-    private void handleBack() {
-        mainApp.showMainMenu();
+    private void onBackToMenu() {
+        if (stage != null) {
+            stage.close();
+        }
     }
+
 }
