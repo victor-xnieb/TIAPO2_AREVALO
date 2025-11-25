@@ -513,7 +513,7 @@ public class GameController {
     }
 
 
-    private void spawnScenarioEnemies() {
+    public void spawnScenarioEnemies() {
         switch (scenario) {
             case PLAIN -> {
                 enemies.addLast(new Enemy(100, 100, EnemyType.BANDIT_REVOLVER));
@@ -717,7 +717,7 @@ public class GameController {
     }
 
 
-    private void spawnRandomEnemy() {
+    public void spawnRandomEnemy() {
         int attempts = 0;
 
         while (attempts < 50) { // no nos quedamos en bucle infinito
@@ -768,7 +768,7 @@ public class GameController {
         };
     }
 
-    private void handleMovement(double delta) {
+    public void handleMovement(double delta) {
         double speed = 140;
 
         double dx = 0;
@@ -814,7 +814,7 @@ public class GameController {
     }
 
 
-    private void checkPlayerEnemyCollisions() {
+    public void checkPlayerEnemyCollisions() {
         if (playerHitCooldown > 0) return; // todavía invencible
 
         for (Enemy enemy : enemies) {
@@ -1114,7 +1114,7 @@ public class GameController {
         pressedKeys.remove(code);
     }
 
-    private void updateEnemyBullets(double delta) {
+    public void updateEnemyBullets(double delta) {
         for (EnemyBullet bullet : enemyBullets) {
             bullet.update(delta, gameMap);
 
@@ -1136,7 +1136,7 @@ public class GameController {
     }
 
 
-    private void killEnemiesOnCliff() {
+    public void killEnemiesOnCliff() {
         // solo tiene sentido en el escenario de montañas
         if (scenario != Scenario.MOUNTAIN) {
             return;
@@ -1158,7 +1158,7 @@ public class GameController {
         enemies = remaining;
     }
 
-    private void checkCliffFall() {
+    public void checkCliffFall() {
         // Solo hay acantilado en Montañas
         if (scenario != Scenario.MOUNTAIN) {
             return;
@@ -1239,7 +1239,7 @@ public class GameController {
 
 
 
-    private void toggleWeapon() {
+    public void toggleWeapon() {
         // si aún no tiene rifle, solo puede usar revólver
         if (!hasRifle) {
             if (player.getCurrentWeapon() != WeaponType.REVOLVER) {
@@ -1469,7 +1469,7 @@ public class GameController {
         }
     }
 
-    private void selectNextSupply() {
+    public void selectNextSupply() {
         // solo dos tipos, así que es un toggle simple
         if (selectedSupply == ItemType.FOOD) {
             selectedSupply = ItemType.HEAL;
@@ -1479,7 +1479,7 @@ public class GameController {
         updateHud();
     }
 
-    private void useSelectedSupply() {
+    public void useSelectedSupply() {
         // si está a vida máxima, no dejamos usar nada
         if (player.getHealth() >= player.getMaxHealth()) {
             showTempMessage("Ya tienes la vida al máximo.");

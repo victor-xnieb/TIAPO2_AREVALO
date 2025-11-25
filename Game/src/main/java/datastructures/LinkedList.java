@@ -96,4 +96,16 @@ public class LinkedList<T> implements Iterable<T> {
         return head.value;
     }
 
+    public T getLast() {
+        if (head == null) {
+            throw new NoSuchElementException("La lista está vacía");
+        }
+
+        Node<T> cur = head;
+        while (cur.next != null) {
+            cur = cur.next;
+        }
+        return cur.value;
+    }
+
 }

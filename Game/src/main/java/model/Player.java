@@ -201,24 +201,4 @@ public class Player extends Entity {
         }
     }
 
-    /**
-     * Método antiguo que quizá tengas por ahí.
-     * Lo dejo como compatibilidad: intenta consumir balas del sistema,
-     * usando tryShoot() y, si hace falta, recargando.
-     */
-    public boolean consumeAmmo(int amount) {
-        if (amount <= 0) return true;
-
-        for (int i = 0; i < amount; i++) {
-            if (!tryShoot()) {
-                // intentar recargar y volver a disparar
-                boolean reloaded = reload();
-                if (!reloaded || !tryShoot()) {
-                    // no hay forma de sacar más balas
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
 }

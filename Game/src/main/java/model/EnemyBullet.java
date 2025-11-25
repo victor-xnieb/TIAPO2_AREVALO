@@ -63,4 +63,12 @@ public class EnemyBullet extends Entity {
     public int getDamage() {
         return damage;
     }
+
+    public double getVx() {
+        return vx;
+    }
+
+    public double getVy() {
+        return vy;
+    }
 }

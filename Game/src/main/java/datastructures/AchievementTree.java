@@ -109,4 +109,9 @@ public class AchievementTree {
         return findByNameRec(node.right, name);
     }
 
+
+    public boolean isEmpty() {
+        return root == null;
+    }
+
 }
