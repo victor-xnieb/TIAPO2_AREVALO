@@ -8,7 +8,7 @@ public class GeminiService {
     private final Client client;
 
     public GeminiService() {
-        client = Client.builder().apiKey("AIzaSyClBGYuYrMjJ4Y1ThQlm-ANwaVIPx_PKUc").build();
+        client = Client.builder().apiKey("").build();
     }
 
     /**
