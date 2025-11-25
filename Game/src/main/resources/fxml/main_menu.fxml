@@ -16,7 +16,7 @@
             <Image url="@../images/fondos/fondo_menu_principal.png" />
          </image>
       </ImageView>
-      <VBox alignment="CENTER" prefHeight="301.0" prefWidth="553.0" spacing="15" style="-fx-background-image: -fx-background-image: url(&quot;images/fondos/fondo_menu_principal.png&quot;); -fx-background-size: cover; /* o contain, o un tamaño específico como &quot;100% 100%&quot; */-fx-background-position: center center; -fx-background-repeat: no-repeat;" stylesheets="@../css/menu_principal_fondo.css">
+      <VBox alignment="CENTER" prefHeight="301.0" prefWidth="553.0" spacing="15">
           <padding>
               <Insets bottom="40" left="40" right="40" top="40" />
           </padding>
@@ -28,7 +28,7 @@
       
               <Button onAction="#handleScenario2" text="JUGAR - NIVEL 2" />
       
-              <Button onAction="#handleScenario3" text="JUGAR - NIVEL 3" />
+              <Button onAction="#handleScenario3" text="JUGAR - Río Columbia" />
       
               <Button onAction="#handleAchievements" text="Ver logros" />
       
