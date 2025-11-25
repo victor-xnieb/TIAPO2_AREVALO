@@ -34,7 +34,7 @@ public enum Scenario {
             "/maps/MapaRioCSV.csv",
             21,
             12,
-            1,
+            25,
             riverFoodTiles(),
             riverHealTiles()
     );

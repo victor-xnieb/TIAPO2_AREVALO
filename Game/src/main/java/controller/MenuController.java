@@ -37,4 +37,10 @@ public class MenuController {
     private void handleExit(ActionEvent event) {
         System.exit(0);
     }
+
+    @FXML
+    private void onManualClicked() {
+        mainApp.showManualFromMenu();
+    }
+
 }

@@ -2,6 +2,7 @@ package controller;
 
 import app.MainApp;
 import datastructures.LinkedList;
+import gemini_service.GeminiService;
 import javafx.animation.AnimationTimer;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
@@ -187,6 +188,10 @@ public class GameController {
     private int totalEnemiesKilled = 0;
     private int rifleKills = 0;
 
+    // imagen para las balas tiradas en el piso (pickup de munición)
+    private Image ammoPickupImage;
+
+
     public void setAchievementsManager(AchievementsManager manager) {
         this.achievementsManager = manager;
     }
@@ -321,12 +326,31 @@ public class GameController {
         gameMap = new GameMap(scenario);
 
         // 3) Frames de enemigos
-        enemyFrames = new Image[] {
-                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo.png")),
-                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo2.png")),
-                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo3.png")),
-                new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo4.png"))
-        };
+
+        if(scenario==Scenario.MOUNTAIN) {
+            enemyFrames = new Image[]{
+                    new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo2.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo3.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo1/enemigo4.png"))
+            };
+        } else if (scenario==Scenario.RIVER) {
+            enemyFrames = new Image[]{
+                    new Image(getClass().getResourceAsStream("/images/enemigo2/1.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo2/2.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo2/3.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo2/4.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo2/5.png"))
+            };
+        } else {
+            enemyFrames = new Image[]{
+                    new Image(getClass().getResourceAsStream("/images/enemigo3/1.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo3/2.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo3/3.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo3/4.png")),
+                    new Image(getClass().getResourceAsStream("/images/enemigo3/5.png"))
+            };
+        }
 
         playerAnimations = new Image[4][];
 
@@ -376,6 +400,12 @@ public class GameController {
         riflePickupImage = new Image(
                 getClass().getResourceAsStream("/images/armas/rifle_piso.png")
         );
+
+
+        ammoPickupImage = new Image(
+                getClass().getResourceAsStream("/images/armas/bala.png")
+        );
+
 
 
         // comida y curaciones
@@ -460,9 +490,25 @@ public class GameController {
         spawnKeysForScenario();
         updateHearts();
         updateHud();
+
         if (achievementsManager != null) {
             achievementsManager.unlock("WELCOME");
         }
+
+        // --- Gemini ---
+        geminiService   = new GeminiService();
+        dialogueExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+
+        // Imagen de bocadillo (ponla donde tú la guardes)
+        bubbleImage = new Image(
+                getClass().getResourceAsStream("/images/objetos/burbuja.png")
+        );
+
+        // lista ya la inicializamos en la declaración, pero por si reinicias partida:
+        dialogueBubbles.clear();
+
+
+
         startLoop();   // 👈 SIEMPRE al FINAL
     }
 
@@ -517,6 +563,7 @@ public class GameController {
         updateWeaponPickups();
         updateItemPickups(delta);
         updateKeyPickups(delta);
+        updateDialogueBubbles(delta);
         checkPlayerEnemyCollisions();
         checkPortalCollision();
 
@@ -816,47 +863,39 @@ public class GameController {
         // ---- fondo ----
         gc.drawImage(background, 0, 0, gameMap.getWidth(), gameMap.getHeight());
 
-        // opcional: dibujar tiles sólidos para debugear
-        // gc.setFill(Color.color(1, 0, 0, 0.3));
-        // for (...) if tile==1 gc.fillRect(...);
-
-        // ----- LLAVES (separado de comida/medicina) -----
+        // ----- LLAVES -----
         for (ItemPickup key : keyPickups) {
             if (!key.isActive()) continue;
 
-            double size = key.getRadius() * 2;
-            double x = key.getPosition().x - size / 2;
-            double y = key.getPosition().y - size / 2;
+            double sizeKey = key.getRadius() * 2;
+            double x = key.getPosition().x - sizeKey / 2;
+            double y = key.getPosition().y - sizeKey / 2;
 
-            gc.drawImage(keyImage, x, y, size, size);
+            gc.drawImage(keyImage, x, y, sizeKey, sizeKey);
         }
 
         // ----- PORTAL -----
         if (portalActive) {
-            double size = portalRadius * 2;
+            double sizePortal = portalRadius * 2;
             gc.drawImage(
                     portalImage,
-                    portalX - size / 2,
-                    portalY - size / 2,
-                    size,
-                    size
+                    portalX - sizePortal / 2,
+                    portalY - sizePortal / 2,
+                    sizePortal,
+                    sizePortal
             );
         }
 
-
-
         // ---- jugador ----
-        // jugador con sprite
         Image sprite = choosePlayerSprite();
-        double size = player.getRadius() * 4; // ajusta hasta que se vea del tamaño que te guste
+        double playerSize = player.getRadius() * 4;
 
-        double px = player.getPosition().x - size / 2;
-        double py = player.getPosition().y - size / 2;
+        double px = player.getPosition().x - playerSize / 2;
+        double py = player.getPosition().y - playerSize / 2;
 
-        gc.drawImage(sprite, px, py, size, size);
+        gc.drawImage(sprite, px, py, playerSize, playerSize);
 
-
-        // ---- enemigos (animados con frames) ----
+        // ---- enemigos ----
         Image enemyFrame = null;
         if (enemyFrames != null && enemyFrames.length > 0) {
             long now = System.nanoTime();
@@ -865,77 +904,93 @@ public class GameController {
         }
 
         for (Enemy enemy : enemies) {
-            double x = enemy.getPosition().x;
-            double y = enemy.getPosition().y;
-            double size2 = enemy.getRadius() * 4;
+            double ex = enemy.getPosition().x;
+            double ey = enemy.getPosition().y;
+            double esize = enemy.getRadius() * 4;
 
             if (enemyFrame != null) {
                 gc.drawImage(enemyFrame,
-                        x - size2 / 2,
-                        y - size2 / 2,
-                        size2,
-                        size2);
+                        ex - esize / 2,
+                        ey - esize / 2,
+                        esize,
+                        esize);
             } else {
-                // fallback por si algo falla al cargar las imágenes
                 gc.setFill(Color.RED);
                 gc.fillOval(
-                        x - enemy.getRadius(),
-                        y - enemy.getRadius(),
+                        ex - enemy.getRadius(),
+                        ey - enemy.getRadius(),
                         enemy.getRadius() * 2,
                         enemy.getRadius() * 2
                 );
             }
         }
 
-        // ---- pickups de munición ----
-        gc.setFill(Color.GOLD);
-        for (AmmoPickup pickup : ammoPickups) {
-            gc.fillOval(
-                    pickup.getPosition().x - pickup.getRadius(),
-                    pickup.getPosition().y - pickup.getRadius(),
-                    pickup.getRadius() * 2,
-                    pickup.getRadius() * 2
-            );
-        }
+        // ---- pickups de munición (balas en el suelo) ----
+        if (ammoPickupImage != null) {
+            for (AmmoPickup pickup : ammoPickups) {
+                double cx = pickup.getPosition().x;
+                double cy = pickup.getPosition().y;
 
-        // pickups de armas (rifle en el suelo)
-        if (riflePickupImage != null && weaponPickups != null) {
-            for (WeaponPickup wp : weaponPickups) {
-                double size4 = wp.getRadius() * 2;
+                // ajusta este tamaño hasta que te guste cómo se ve
+                double size = pickup.getRadius() * 5.0;
 
                 gc.drawImage(
-                        riflePickupImage,
-                        wp.getPosition().x - size4 / 2,
-                        wp.getPosition().y - size4 / 2,
-                        size4,
-                        size4
+                        ammoPickupImage,
+                        cx - size / 2,   // centrar en X
+                        cy - size / 2,   // centrar en Y
+                        size,
+                        size
+                );
+            }
+        } else {
+            // fallback por si falla la carga de la imagen
+            gc.setFill(Color.GOLD);
+            for (AmmoPickup pickup : ammoPickups) {
+                gc.fillOval(
+                        pickup.getPosition().x - pickup.getRadius(),
+                        pickup.getPosition().y - pickup.getRadius(),
+                        pickup.getRadius() * 2,
+                        pickup.getRadius() * 2
                 );
             }
         }
 
-        // ítems: comida y curación en el mapa
+
+        // ---- pickups de armas (rifle en el suelo) ----
+        if (riflePickupImage != null && weaponPickups != null) {
+            for (WeaponPickup wp : weaponPickups) {
+                double s = wp.getRadius() * 2;
+
+                gc.drawImage(
+                        riflePickupImage,
+                        wp.getPosition().x - s / 2,
+                        wp.getPosition().y - s / 2,
+                        s,
+                        s
+                );
+            }
+        }
+
+        // ---- comida / curación ----
         if (itemPickups != null) {
             for (ItemPickup item : itemPickups) {
                 if (!item.isAvailable()) continue;
 
                 Image img = (item.getType() == ItemType.FOOD) ? foodImage : healImage;
-
-                double size5 = item.getRadius() * 2;
+                double s = item.getRadius() * 2;
 
                 gc.drawImage(
                         img,
-                        item.getPosition().x - size5 / 2,
-                        item.getPosition().y - size5 / 2,
-                        size5,
-                        size5
+                        item.getPosition().x - s / 2,
+                        item.getPosition().y - s / 2,
+                        s,
+                        s
                 );
             }
         }
 
-
-
         // ---- balas del jugador ----
-        gc.setFill(Color.YELLOW);
+        gc.setFill(Color.WHITE);
         for (Bullet bullet : bullets) {
             gc.fillOval(
                     bullet.getPosition().x - bullet.getRadius(),
@@ -946,7 +1001,7 @@ public class GameController {
         }
 
         // ---- balas enemigas ----
-        gc.setFill(Color.ORANGE);
+        gc.setFill(Color.WHITE);
         for (EnemyBullet bullet : enemyBullets) {
             gc.fillOval(
                     bullet.getPosition().x - bullet.getRadius(),
@@ -956,26 +1011,28 @@ public class GameController {
             );
         }
 
+        // 🔥🔥🔥 AQUÍ van los bocadillos, todavía en coordenadas de mundo
+        renderDialogueBubbles(gc);
+
         // fin de las transformaciones del mundo
         gc.restore();
 
         // ================== UI / MIRA (coordenadas de pantalla) ==================
-
         if (mouseInside) {
             double size3 = 12; // largo de las líneas de la mira
 
             gc.setStroke(Color.WHITE);
             gc.setLineWidth(2);
 
-            // línea horizontal
             gc.strokeLine(mouseX - size3, mouseY, mouseX + size3, mouseY);
-            // línea vertical
             gc.strokeLine(mouseX, mouseY - size3, mouseX, mouseY + size3);
-
-            // pequeño círculo en el centro
             gc.strokeOval(mouseX - 3, mouseY - 3, 6, 6);
         }
+
+        // ⚠️ Ya no llamamos a renderDialogueBubbles aquí
+        // ⚠️ Tampoco hay un segundo gc.restore() aquí
     }
+
 
 
     private void updateHud() {
@@ -1025,8 +1082,16 @@ public class GameController {
     // manejadores de teclado, conectados desde MainApp
     public void onKeyPressed(KeyCode code) {
         pressedKeys.add(code);
-
+        System.out.println("me meti");
         switch (code) {
+            case T:
+                requestNpcDialogue();
+                break;
+            case M:
+                if (mainApp != null) {
+                    mainApp.showManualFromGame();
+                }
+                break;
             case C:
                 toggleWeapon();      // cambiar arma
                 break;
@@ -1712,5 +1777,163 @@ public class GameController {
             mainApp.showAchievementsView();
         }
     }
+
+    public void pauseGame() {
+        if (timer != null) {
+            timer.stop();
+        }
+    }
+
+    public void resumeGame() {
+        lastTimeNanos = System.nanoTime();
+        if (timer != null) {
+            timer.start();
+        }
+    }
+
+
+
+    // --- Gemini / diálogos ---
+    private GeminiService geminiService;
+    private java.util.concurrent.ExecutorService dialogueExecutor;
+
+    // Bocadillos
+    private static class DialogueBubble {
+        double x;         // posición en coordenadas de mundo
+        double y;
+        String text;
+        double timeLeft;  // segundos que queda visible
+
+        DialogueBubble(double x, double y, String text, double timeLeft) {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.timeLeft = timeLeft;
+        }
+    }
+
+    private void requestNpcDialogue() {
+        // Ejemplo sencillo: habla el jugador con “un bot invisible”.
+        // Si tuvieras un NPC concreto, podrías usar su posición.
+        double px = player.getPosition().x;
+        double py = player.getPosition().y;
+
+        // Bocadillo provisional mientras responde (con "...")
+        addDialogueBubble(px, py - 40, "...", 3.0);
+        System.out.println("Bocadillo provisional añadido. total=" + dialogueBubbles.size());
+
+        // Prompt con contexto básico del juego
+        String prompt = """
+            Eres un vaquero del Viejo Oeste dentro de un videojuego de supervivencia.
+            El jugador está en el escenario %s, tiene %d corazones y %d balas en total.
+            Responde con UNA sola frase corta (máx. 15 palabras), en español, con tono amistoso.Que las
+            frases sean de tres palabras solamente y nombra al vaquero julian cifuentes
+            """.formatted(
+                scenario.getDisplayName(),
+                player.getHealth(),
+                player.getAmmo()
+        );
+
+        // Llamada asíncrona a Gemini
+        dialogueExecutor.submit(() -> {
+            try {
+                String answer = geminiService.generateDialogue(prompt);
+
+                // Cuando tengamos la respuesta, actualizamos la UI en el hilo JavaFX:
+                javafx.application.Platform.runLater(() -> {
+                    // quitamos el bocadillo con "..." (si quieres)
+                    clearDialogueBubbles();
+
+                    // mostramos el nuevo texto sobre el jugador
+                    addDialogueBubble(px, py - 40, answer, 6.0);
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                javafx.application.Platform.runLater(() -> {
+                    clearDialogueBubbles();
+                    addDialogueBubble(px, py - 40,
+                            "Creo que la línea de telégrafo falló...", 4.0);
+                });
+            }
+        });
+    }
+
+
+    private void addDialogueBubble(double worldX, double worldY, String text, double durationSeconds) {
+        dialogueBubbles.add(new DialogueBubble(worldX, worldY, text, durationSeconds));
+    }
+
+    private void clearDialogueBubbles() {
+        dialogueBubbles.clear();
+    }
+
+    private void updateDialogueBubbles(double delta) {
+        if (dialogueBubbles.isEmpty()) return;
+
+        // bajar temporizadores y eliminar los que ya expiraron
+        dialogueBubbles.removeIf(b -> {
+            b.timeLeft -= delta;
+            return b.timeLeft <= 0;
+        });
+    }
+
+    private void renderDialogueBubbles(GraphicsContext gc) {
+        if (dialogueBubbles.isEmpty()) return;
+
+        gc.setFont(javafx.scene.text.Font.font(14));
+        gc.setFill(javafx.scene.paint.Color.BLACK);
+
+        for (DialogueBubble bubble : dialogueBubbles) {
+            double bw = 180;  // tamaño del bocadillo en "pixeles mundo"
+            double bh = 60;
+
+            double x = bubble.x - bw / 2;
+            double y = bubble.y - bh;      // un poco por encima
+
+            if (bubbleImage != null) {
+                gc.drawImage(bubbleImage, x, y, bw, bh);
+            } else {
+                // fallback: rectángulo blanco con borde
+                gc.setFill(javafx.scene.paint.Color.color(1, 1, 1, 0.9));
+                gc.fillRoundRect(x, y, bw, bh, 12, 12);
+                gc.setStroke(javafx.scene.paint.Color.BLACK);
+                gc.strokeRoundRect(x, y, bw, bh, 12, 12);
+            }
+
+            // texto (un poco desplazado dentro del bocadillo)
+            double textX = x + 10;
+            double textY = y + 20;
+
+            // partimos el texto en varias líneas cortas
+            String[] words = bubble.text.split("\\s+");
+            StringBuilder line = new StringBuilder();
+            int lineNum = 0;
+
+            for (String w : words) {
+                String candidate = line.isEmpty()
+                        ? w
+                        : line + " " + w;
+                // si la línea es muy larga, la pintamos y empezamos otra
+                if (candidate.length() > 26) {
+                    gc.fillText(line.toString(), textX, textY + lineNum * 16);
+                    line = new StringBuilder(w);
+                    lineNum++;
+                } else {
+                    line = new StringBuilder(candidate);
+                }
+            }
+            if (!line.isEmpty()) {
+                gc.fillText(line.toString(), textX, textY + lineNum * 16);
+            }
+        }
+    }
+
+
+
+
+    private java.util.List<DialogueBubble> dialogueBubbles = new java.util.ArrayList<>();
+    private Image bubbleImage;
+
+
 
 }

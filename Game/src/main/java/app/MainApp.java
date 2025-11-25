@@ -68,6 +68,9 @@ public class MainApp extends Application {
             // si ocultas el cursor:
             scene.setCursor(javafx.scene.Cursor.NONE);
 
+            gameScene = scene;
+            currentGameController = controller;
+
             primaryStage.setTitle("Oregon Trail Survival - " + scenario.getDisplayName());
             primaryStage.setScene(scene);
             // no hace falta show() otra vez, el Stage ya está visible y maximizado
@@ -149,6 +152,57 @@ public class MainApp extends Application {
             e.printStackTrace();
         }
     }
+
+    public void showManualFromMenu() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/manual_view.fxml"));
+            Parent root = loader.load();
+
+            ManualController controller = loader.getController();
+            controller.setMainApp(this);
+            controller.setOpenedFromGame(false); // viene del menú
+
+            Scene scene = new Scene(root);
+            primaryStage.setTitle("Oregon Trail Survival - Manual");
+            primaryStage.setScene(scene);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+    private Scene gameScene;
+    private GameController currentGameController;
+    private Scene previousScene;  // escena a la que volvemos
+
+
+    public void showManualFromGame() {
+        previousScene = gameScene;           // guarda la escena del juego
+        currentGameController.pauseGame();   // método que pare el AnimationTimer
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/manual_view.fxml"));
+            Parent root = loader.load();
+
+            ManualController controller = loader.getController();
+            controller.setMainApp(this);
+            controller.setOpenedFromGame(true);
+
+            Scene scene = new Scene(root);
+            primaryStage.setScene(scene);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void returnFromManualToGame() {
+        primaryStage.setScene(gameScene);
+        if (currentGameController != null) {
+            currentGameController.resumeGame(); // vuelve a arrancar el AnimationTimer
+        }
+    }
+
 
 
     public static void main(String[] args) {

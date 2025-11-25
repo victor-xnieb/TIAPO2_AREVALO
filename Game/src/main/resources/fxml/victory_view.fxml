@@ -3,33 +3,38 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
-
 <?import javafx.scene.layout.HBox?>
-<BorderPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="controller.VictoryController">
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
 
-    <center>
-        <VBox alignment="CENTER" spacing="20">
-            <padding>
-                <Insets top="40" right="40" bottom="40" left="40"/>
-            </padding>
-
-            <Label text="¡Victoria!"
-                   style="-fx-font-size: 32px; -fx-text-fill: green;"/>
-
-            <Label fx:id="scoreLabel"
-                   text="Puntaje: 0"
-                   style="-fx-font-size: 18px;"/>
-
-            <HBox spacing="15" alignment="CENTER">
-                <Button text="Jugar de nuevo"
-                        onAction="#onPlayAgain"/>
-                <Button text="Menú principal"
-                        onAction="#onMainMenu"/>
-            </HBox>
-        </VBox>
-    </center>
-</BorderPane>
+<StackPane xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.VictoryController">
+   <children>
+      <ImageView fitHeight="1000.0" fitWidth="1300.0" pickOnBounds="true" preserveRatio="true">
+         <image>
+            <Image url="@../images/fondos/fondo_pantalla_juego.png" />
+         </image>
+      </ImageView>
+      <BorderPane>
+      
+          <center>
+              <VBox alignment="CENTER" spacing="20">
+                  <padding>
+                      <Insets bottom="40" left="40" right="40" top="40" />
+                  </padding>
+      
+                  <Label style="-fx-font-size: 32px; -fx-text-fill: green;" text="¡Victoria!" />
+      
+                  <Label fx:id="scoreLabel" style="-fx-font-size: 18px;" text="Puntaje: 0" />
+      
+                  <HBox alignment="CENTER" spacing="15">
+                      <Button onAction="#onPlayAgain" text="Jugar de nuevo" />
+                      <Button onAction="#onMainMenu" text="Menú principal" />
+                  </HBox>
+              </VBox>
+          </center>
+      </BorderPane>
+   </children>
+</StackPane>

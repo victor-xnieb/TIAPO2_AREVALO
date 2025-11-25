@@ -3,34 +3,40 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx"
-      xmlns:fx="http://javafx.com/fxml"
-      fx:controller="controller.MenuController"
-      alignment="CENTER"
-      spacing="15">
-    <padding>
-        <Insets top="40" right="40" bottom="40" left="40"/>
-    </padding>
 
-    <children>
-        <Label text="Oregon Trail Survival"
-               style="-fx-font-size: 28px; -fx-font-weight: bold;"/>
-
-        <Button text="Escenario 1 - Llanuras"
-                onAction="#handleScenario1"/>
-
-        <Button text="Escenario 2 - Montañas Rocosas"
-                onAction="#handleScenario2"/>
-
-        <Button text="Escenario 3 - Río Columbia"
-                onAction="#handleScenario3"/>
-
-        <Button text="Ver logros"
-                onAction="#handleAchievements"/>
-
-        <Button text="Salir"
-                onAction="#handleExit"/>
-    </children>
-</VBox>
+<StackPane xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.MenuController">
+   <children>
+      <ImageView fitHeight="1000.0" fitWidth="1300.0" pickOnBounds="true" preserveRatio="true">
+         <image>
+            <Image url="@../images/fondos/fondo_menu_principal.png" />
+         </image>
+      </ImageView>
+      <VBox alignment="CENTER" prefHeight="301.0" prefWidth="553.0" spacing="15" style="-fx-background-image: -fx-background-image: url(&quot;images/fondos/fondo_menu_principal.png&quot;); -fx-background-size: cover; /* o contain, o un tamaño específico como &quot;100% 100%&quot; */-fx-background-position: center center; -fx-background-repeat: no-repeat;" stylesheets="@../css/menu_principal_fondo.css">
+          <padding>
+              <Insets bottom="40" left="40" right="40" top="40" />
+          </padding>
+      
+          <children>
+              <Label style="-fx-font-size: 28px; -fx-font-weight: bold;" text="Oregon Trail Survival" />
+      
+              <Button onAction="#handleScenario1" text="JUGAR - NIVEL 1" />
+      
+              <Button onAction="#handleScenario2" text="JUGAR - NIVEL 2" />
+      
+              <Button onAction="#handleScenario3" text="JUGAR - NIVEL 3" />
+      
+              <Button onAction="#handleAchievements" text="Ver logros" />
+      
+              <Button onAction="#handleExit" text="Salir" />
+      
+              <Button onAction="#onManualClicked" text="Manual" />
+      
+          </children>
+      </VBox>
+   </children>
+</StackPane>
